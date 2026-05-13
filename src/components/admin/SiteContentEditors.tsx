@@ -104,7 +104,13 @@ export const AboutEditor = () => {
 
 export const PlansEditor = () => {
     const [plansValue, loading] = useCollection(collection(db, 'plans'));
-    const plans = plansValue?.docs.map(doc => ({ id: doc.id, ...doc.data() })) || [];
+    const [localPlans, setLocalPlans] = useState<any[]>([]);
+  
+    React.useEffect(() => {
+      if (plansValue) {
+        setLocalPlans(plansValue.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a: any, b: any) => a.order - b.order));
+      }
+    }, [plansValue]);
   
     const handleAddPlan = async () => {
       try {
@@ -115,16 +121,18 @@ export const PlansEditor = () => {
           description: 'Descrição aqui...',
           features: ['Funcionalidade 1'],
           highlight: false,
-          order: plans.length
+          order: localPlans.length
         });
       } catch (error) {
         handleFirestoreError(error, OperationType.CREATE, 'plans');
       }
     };
   
-    const handleUpdatePlan = async (id: string, updated: any) => {
+    const handleSavePlan = async (id: string, plan: any) => {
       try {
-        await updateDoc(doc(db, 'plans', id), updated);
+        const { id: _, ...data } = plan;
+        await updateDoc(doc(db, 'plans', id), data);
+        alert('Plano atualizado!');
       } catch (error) {
         handleFirestoreError(error, OperationType.UPDATE, 'plans');
       }
@@ -139,55 +147,86 @@ export const PlansEditor = () => {
       }
     };
   
-    if (loading) return <Loader2 className="animate-spin text-red-600" />;
+    if (loading && localPlans.length === 0) return <Loader2 className="animate-spin text-red-600" />;
   
     return (
       <div className="space-y-6">
         <div className="flex justify-between items-center mb-8">
           <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter">Gestão de Planos</h3>
-          <button onClick={handleAddPlan} className="btn-primary flex items-center gap-2">
+          <button onClick={handleAddPlan} className="btn-primary flex items-center gap-2 text-xs">
             <Plus className="w-4 h-4" /> Novo Plano
           </button>
         </div>
   
         <div className="grid gap-6">
-          {plans.sort((a: any, b: any) => a.order - b.order).map((plan: any) => (
+          {localPlans.map((plan: any, idx) => (
             <div key={plan.id} className="p-6 bg-brand-black/50 border border-white/5 rounded-2xl space-y-4">
               <div className="flex justify-between items-start">
                 <div className="grid grid-cols-2 gap-4 flex-1 mr-4">
-                  <input 
-                    value={plan.name}
-                    onChange={e => handleUpdatePlan(plan.id, { name: e.target.value })}
-                    className="bg-brand-dark border border-white/5 rounded px-3 py-2 text-white font-black uppercase italic"
-                    placeholder="Nome do Plano"
-                  />
-                  <input 
-                    value={plan.price}
-                    onChange={e => handleUpdatePlan(plan.id, { price: e.target.value })}
-                    className="bg-brand-dark border border-white/5 rounded px-3 py-2 text-white font-black"
-                    placeholder="Preço (Ex: R$ 197)"
-                  />
+                  <div className="space-y-1">
+                    <label className="text-[8px] font-black uppercase text-gray-500">Nome</label>
+                    <input 
+                      value={plan.name}
+                      onChange={e => {
+                        const newPlans = [...localPlans];
+                        newPlans[idx].name = e.target.value;
+                        setLocalPlans(newPlans);
+                      }}
+                      className="bg-brand-dark border border-white/5 rounded px-3 py-2 text-white font-black uppercase italic w-full"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[8px] font-black uppercase text-gray-500">Valor</label>
+                    <input 
+                      value={plan.price}
+                      onChange={e => {
+                        const newPlans = [...localPlans];
+                        newPlans[idx].price = e.target.value;
+                        setLocalPlans(newPlans);
+                      }}
+                      className="bg-brand-dark border border-white/5 rounded px-3 py-2 text-white font-black w-full"
+                    />
+                  </div>
                 </div>
-                <button 
-                  onClick={() => handleDeletePlan(plan.id)}
-                  className="p-2 text-gray-700 hover:text-red-500 transition-colors"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                <div className="flex gap-2">
+                   <button 
+                    onClick={() => handleSavePlan(plan.id, plan)}
+                    className="p-2 text-green-500 hover:bg-green-500/10 rounded transition-colors"
+                    title="Salvar"
+                  >
+                    <Save className="w-4 h-4" />
+                  </button>
+                  <button 
+                    onClick={() => handleDeletePlan(plan.id)}
+                    className="p-2 text-gray-700 hover:text-red-500 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
-              <textarea 
-                 value={plan.description}
-                 onChange={e => handleUpdatePlan(plan.id, { description: e.target.value })}
-                 className="w-full bg-brand-dark border border-white/5 rounded px-3 py-2 text-xs text-gray-400"
-                 rows={2}
-                 placeholder="Descrição curta..."
-              />
+              <div className="space-y-1">
+                <label className="text-[8px] font-black uppercase text-gray-500">Descrição</label>
+                <textarea 
+                   value={plan.description}
+                   onChange={e => {
+                      const newPlans = [...localPlans];
+                      newPlans[idx].description = e.target.value;
+                      setLocalPlans(newPlans);
+                   }}
+                   className="w-full bg-brand-dark border border-white/5 rounded px-3 py-2 text-xs text-gray-400"
+                   rows={2}
+                />
+              </div>
                <div className="flex items-center gap-4">
                  <label className="flex items-center gap-2 text-[10px] font-black uppercase text-gray-500 cursor-pointer">
                    <input 
                      type="checkbox" 
                      checked={plan.highlight}
-                     onChange={e => handleUpdatePlan(plan.id, { highlight: e.target.checked })}
+                     onChange={e => {
+                        const newPlans = [...localPlans];
+                        newPlans[idx].highlight = e.target.checked;
+                        setLocalPlans(newPlans);
+                     }}
                      className="accent-red-600"
                    />
                    Destacar Plano (Recomendado)
@@ -202,7 +241,13 @@ export const PlansEditor = () => {
 
 export const ResultsEditor = () => {
     const [resultsValue, loading] = useCollection(collection(db, 'results'));
-    const results = resultsValue?.docs.map(doc => ({ id: doc.id, ...doc.data() })) || [];
+    const [localResults, setLocalResults] = useState<any[]>([]);
+  
+    React.useEffect(() => {
+      if (resultsValue) {
+        setLocalResults(resultsValue.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a: any, b: any) => a.order - b.order));
+      }
+    }, [resultsValue]);
   
     const handleAddResult = async () => {
       try {
@@ -211,16 +256,18 @@ export const ResultsEditor = () => {
           before: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?auto=format&fit=crop&q=80',
           after: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?auto=format&fit=crop&q=80',
           text: 'Relato do aluno aqui...',
-          order: results.length
+          order: localResults.length
         });
       } catch (error) {
         handleFirestoreError(error, OperationType.CREATE, 'results');
       }
     };
   
-    const handleUpdateResult = async (id: string, updated: any) => {
+    const handleSaveResult = async (id: string, result: any) => {
       try {
-        await updateDoc(doc(db, 'results', id), updated);
+        const { id: _, ...data } = result;
+        await updateDoc(doc(db, 'results', id), data);
+        alert('Resultado atualizado!');
       } catch (error) {
         handleFirestoreError(error, OperationType.UPDATE, 'results');
       }
@@ -235,26 +282,30 @@ export const ResultsEditor = () => {
       }
     };
   
-    if (loading) return <Loader2 className="animate-spin text-red-600" />;
+    if (loading && localResults.length === 0) return <Loader2 className="animate-spin text-red-600" />;
   
     return (
       <div className="space-y-6">
         <div className="flex justify-between items-center mb-8">
           <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter">Case de Sucesso</h3>
-          <button onClick={handleAddResult} className="btn-primary flex items-center gap-2">
+          <button onClick={handleAddResult} className="btn-primary flex items-center gap-2 text-xs">
             <Plus className="w-4 h-4" /> Novo Case
           </button>
         </div>
   
         <div className="grid gap-8">
-          {results.sort((a: any, b: any) => a.order - b.order).map((res: any) => (
-            <div key={res.id} className="p-6 bg-brand-black/50 border border-white/5 rounded-2xl space-y-4 flex gap-6">
-              <div className="flex flex-col gap-4 w-64 shrink-0">
+          {localResults.map((res: any, idx) => (
+            <div key={res.id} className="p-6 bg-brand-black/50 border border-white/5 rounded-2xl space-y-4 flex flex-col md:flex-row gap-6">
+              <div className="flex flex-col gap-4 w-full md:w-64 shrink-0">
                 <div className="space-y-2">
                     <label className="text-[8px] font-black uppercase text-gray-500">URL Antes</label>
                     <input 
                         value={res.before}
-                        onChange={e => handleUpdateResult(res.id, { before: e.target.value })}
+                        onChange={e => {
+                          const newResults = [...localResults];
+                          newResults[idx].before = e.target.value;
+                          setLocalResults(newResults);
+                        }}
                         className="bg-brand-dark border border-white/5 rounded px-3 py-1 text-[8px] text-gray-400 w-full"
                     />
                 </div>
@@ -262,27 +313,55 @@ export const ResultsEditor = () => {
                     <label className="text-[8px] font-black uppercase text-gray-500">URL Depois</label>
                     <input 
                         value={res.after}
-                        onChange={e => handleUpdateResult(res.id, { after: e.target.value })}
+                        onChange={e => {
+                          const newResults = [...localResults];
+                          newResults[idx].after = e.target.value;
+                          setLocalResults(newResults);
+                        }}
                         className="bg-brand-dark border border-white/5 rounded px-3 py-1 text-[8px] text-gray-400 w-full"
                     />
                 </div>
               </div>
               <div className="flex-1 space-y-4">
                 <div className="flex justify-between items-start">
-                  <input 
-                    value={res.title}
-                    onChange={e => handleUpdateResult(res.id, { title: e.target.value })}
-                    className="bg-brand-dark border border-white/5 rounded px-3 py-2 text-white font-black uppercase italic w-full mr-4"
-                    placeholder="Nome do Aluno"
-                  />
-                  <button onClick={() => handleDeleteResult(res.id)} className="p-2 text-gray-700 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                  <div className="flex-1 mr-4">
+                    <label className="text-[8px] font-black uppercase text-gray-500 mb-1 block">Nome do Aluno</label>
+                    <input 
+                      value={res.title}
+                      onChange={e => {
+                        const newResults = [...localResults];
+                        newResults[idx].title = e.target.value;
+                        setLocalResults(newResults);
+                      }}
+                      className="bg-brand-dark border border-white/5 rounded px-3 py-2 text-white font-black uppercase italic w-full"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => handleSaveResult(res.id, res)}
+                      className="p-2 text-green-500 hover:bg-green-500/10 rounded transition-colors"
+                      title="Salvar"
+                    >
+                      <Save className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => handleDeleteResult(res.id)} className="p-2 text-gray-700 hover:text-red-500">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
-                <textarea 
-                    value={res.text}
-                    onChange={e => handleUpdateResult(res.id, { text: e.target.value })}
-                    className="w-full bg-brand-dark border border-white/5 rounded px-3 py-2 text-xs text-gray-400"
-                    rows={3}
-                />
+                <div className="space-y-1">
+                  <label className="text-[8px] font-black uppercase text-gray-500">Relato / Depoimento</label>
+                  <textarea 
+                      value={res.text}
+                      onChange={e => {
+                        const newResults = [...localResults];
+                        newResults[idx].text = e.target.value;
+                        setLocalResults(newResults);
+                      }}
+                      className="w-full bg-brand-dark border border-white/5 rounded px-3 py-2 text-xs text-gray-400"
+                      rows={3}
+                  />
+                </div>
               </div>
             </div>
           ))}

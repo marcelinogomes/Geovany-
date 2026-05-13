@@ -39,8 +39,8 @@ const AdminDashboard = () => {
 
   const students = studentsValue?.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile)) || [];
   const filteredStudents = students.filter(s => 
-    s.displayName?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    s.email?.toLowerCase().includes(searchTerm.toLowerCase())
+    (s.displayName?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+     s.email?.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   const stats = {
@@ -49,7 +49,8 @@ const AdminDashboard = () => {
     progressLogs: progressCountValue?.size || 0,
     newThisMonth: students.filter(s => {
       if (!s.createdAt) return false;
-      const date = s.createdAt.seconds ? new Date(s.createdAt.seconds * 1000) : new Date();
+      // Handle both Firestore Timestamp and regular Date
+      const date = (s.createdAt as any)?.seconds ? new Date((s.createdAt as any).seconds * 1000) : new Date(s.createdAt as any);
       const monthAgo = new Date();
       monthAgo.setMonth(monthAgo.getMonth() - 1);
       return date > monthAgo;
@@ -98,6 +99,19 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleUpdateStudentRole = async (uid: string, newRole: 'admin' | 'student') => {
+    if (!confirm(`Deseja alterar o cargo deste usuário para ${newRole}?`)) return;
+    try {
+      await updateDoc(doc(db, 'users', uid), { role: newRole });
+      if (selectedStudent?.uid === uid) {
+        setSelectedStudent({ ...selectedStudent, role: newRole });
+      }
+      alert('Cargo atualizado!');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, 'users');
+    }
+  };
+
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedStudent) return;
@@ -115,6 +129,41 @@ const AdminDashboard = () => {
     } catch (error) {
       alert('Erro ao atualizar perfil. Verifique as permissões.');
       handleFirestoreError(error, OperationType.UPDATE, 'users');
+    }
+  };
+
+  const handleDeleteStudent = async (uid: string) => {
+    if (!confirm('ATENÇÃO: Isso excluirá Permanentemente todos os dados deste aluno (treinos, exercícios, progresso e perfil). Continuar?')) return;
+    try {
+      // 1. Delete workouts and their exercises
+      const qWorkouts = query(collection(db, 'workouts'), where('studentId', '==', uid));
+      const workoutDocs = await getDocs(qWorkouts);
+      for (const wDoc of workoutDocs.docs) {
+        // Find and delete exercises for this workout
+        const qEx = query(collection(db, 'exercises'), where('workoutId', '==', wDoc.id));
+        const exDocs = await getDocs(qEx);
+        for (const eDoc of exDocs.docs) {
+          await deleteDoc(doc(db, 'exercises', eDoc.id));
+        }
+        // Delete workout
+        await deleteDoc(doc(db, 'workouts', wDoc.id));
+      }
+
+      // 2. Delete progress
+      const qProgress = query(collection(db, 'progress'), where('studentId', '==', uid));
+      const progressDocs = await getDocs(qProgress);
+      for (const d of progressDocs.docs) {
+        await deleteDoc(doc(db, 'progress', d.id));
+      }
+
+      // 3. Delete user profile
+      await deleteDoc(doc(db, 'users', uid));
+
+      setSelectedStudent(null);
+      alert('Aluno removido permanentemente do sistema.');
+    } catch (error) {
+      alert('Erro ao remover aluno.');
+      handleFirestoreError(error, OperationType.DELETE, 'users');
     }
   };
 
@@ -164,6 +213,17 @@ const AdminDashboard = () => {
           </div>
           
           <div className="flex items-center gap-4 w-full md:w-auto">
+            <button 
+              onClick={() => {
+                navigator.clipboard.writeText(window.location.origin);
+                alert('Link de convite copiado para a área de transferência! Envie para o novo aluno se cadastrar.');
+              }}
+              className="p-4 bg-white/5 rounded-2xl text-gray-500 hover:text-white transition-all border border-white/5 flex items-center gap-2 group"
+              title="Copiar Link de Cadastro"
+            >
+              <ExternalLink className="w-4 h-4 group-hover:scale-110 transition-transform" />
+              <span className="text-[10px] uppercase font-black tracking-widest hidden md:inline">Link de Convite</span>
+            </button>
             <div className="relative flex-1 md:flex-none">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-red-600" />
               <input 
@@ -317,11 +377,34 @@ const AdminDashboard = () => {
                                   setIsEditingProfile(true);
                                 }}
                                 className="p-2 bg-white/5 rounded-lg text-gray-600 hover:text-white transition-all shadow-lg"
+                                title="Editar Perfil"
                               >
                                 <Edit3 className="w-4 h-4" />
                               </button>
+                              <button 
+                                onClick={() => handleDeleteStudent(selectedStudent.uid)}
+                                className="p-2 bg-white/5 rounded-lg text-gray-600 hover:text-red-600 transition-all shadow-lg"
+                                title="Remover Aluno"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
                             </div>
                             <p className="text-gray-500 font-bold text-sm tracking-widest bg-white/5 px-3 py-1 rounded inline-block">{selectedStudent.email}</p>
+                            
+                            <div className="flex items-center gap-2 mt-2">
+                               <span className={`text-[8px] font-black uppercase px-2 py-1 rounded ${selectedStudent.role === 'admin' ? 'bg-red-600/20 text-red-500' : 'bg-white/5 text-gray-500'}`}>
+                                 Cargo: {selectedStudent.role}
+                               </span>
+                               {selectedStudent.role === 'student' && (
+                                 <button 
+                                   onClick={() => handleUpdateStudentRole(selectedStudent.uid, 'admin')}
+                                   className="text-[8px] font-black uppercase text-gray-700 hover:text-white transition-colors"
+                                 >
+                                   Promover →
+                                 </button>
+                               )}
+                            </div>
+
                             <div className="flex gap-4 mt-6">
                               <div className="bg-red-600/5 border border-red-600/10 px-4 py-3 rounded-2xl group cursor-pointer" onClick={() => { setNewGoal(selectedStudent.goal || ''); setIsEditingGoal(true); }}>
                                 <p className="text-[9px] text-red-600 font-black uppercase tracking-widest mb-1.5 flex items-center gap-2">
