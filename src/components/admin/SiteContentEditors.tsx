@@ -370,13 +370,94 @@ export const ResultsEditor = () => {
     );
 };
 
+export const ContactEditor = () => {
+    const [contactValue, loading] = useDocument(doc(db, 'settings', 'contact'));
+    const [data, setData] = useState({ 
+      whatsapp: '', 
+      instagram: '', 
+      email: '', 
+      address: '',
+      consultationLink: ''
+    });
+  
+    React.useEffect(() => {
+      if (contactValue?.exists()) {
+        setData(contactValue.data() as any);
+      }
+    }, [contactValue]);
+  
+    const handleSave = async () => {
+      try {
+        await setDoc(doc(db, 'settings', 'contact'), data);
+        alert('Contatos atualizados!');
+      } catch (error) {
+        handleFirestoreError(error, OperationType.UPDATE, 'settings/contact');
+      }
+    };
+  
+    if (loading) return <Loader2 className="animate-spin text-red-600" />;
+  
+    return (
+      <div className="space-y-6">
+        <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter">Canais de Contato</h3>
+        <div className="grid md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 px-1">WhatsApp (Número com DDD)</label>
+            <input 
+              className="w-full bg-brand-black border border-white/10 rounded-xl px-4 py-3 text-white font-bold"
+              value={data.whatsapp}
+              onChange={e => setData({...data, whatsapp: e.target.value})}
+              placeholder="Ex: 5511999999999"
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 px-1">Instagram (Username)</label>
+            <input 
+              className="w-full bg-brand-black border border-white/10 rounded-xl px-4 py-3 text-white font-bold"
+              value={data.instagram}
+              onChange={e => setData({...data, instagram: e.target.value})}
+              placeholder="Ex: joaosilva"
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 px-1">E-mail</label>
+            <input 
+              className="w-full bg-brand-black border border-white/10 rounded-xl px-4 py-3 text-white font-bold"
+              value={data.email}
+              onChange={e => setData({...data, email: e.target.value})}
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 px-1">Link de Consultoria (Hotmart, etc)</label>
+            <input 
+              className="w-full bg-brand-black border border-white/10 rounded-xl px-4 py-3 text-white font-bold"
+              value={data.consultationLink}
+              onChange={e => setData({...data, consultationLink: e.target.value})}
+            />
+          </div>
+        </div>
+        <div>
+          <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 px-1">Endereço / Localização</label>
+          <input 
+            className="w-full bg-brand-black border border-white/10 rounded-xl px-4 py-3 text-white font-bold"
+            value={data.address}
+            onChange={e => setData({...data, address: e.target.value})}
+          />
+        </div>
+        <button onClick={handleSave} className="btn-primary flex items-center gap-2">
+          <Save className="w-4 h-4" /> Salvar Contatos
+        </button>
+      </div>
+    );
+};
+
 const SiteContentManager = () => {
-    const [activeSection, setActiveSection] = useState<'hero' | 'about' | 'plans' | 'results'>('hero');
+    const [activeSection, setActiveSection] = useState<'hero' | 'about' | 'plans' | 'results' | 'contact'>('hero');
   
     return (
       <div className="grid lg:grid-cols-12 gap-8">
         <div className="lg:col-span-3 space-y-2">
-          {(['hero', 'about', 'plans', 'results'] as const).map(section => (
+          {(['hero', 'about', 'plans', 'results', 'contact'] as const).map(section => (
             <button
               key={section}
               onClick={() => setActiveSection(section)}
@@ -388,6 +469,7 @@ const SiteContentManager = () => {
               {section === 'about' && 'Sobre'}
               {section === 'plans' && 'Planos / Preços'}
               {section === 'results' && 'Resultados'}
+              {section === 'contact' && 'Contatos / Footer'}
             </button>
           ))}
         </div>
@@ -403,6 +485,7 @@ const SiteContentManager = () => {
             {activeSection === 'about' && <AboutEditor />}
             {activeSection === 'plans' && <PlansEditor />}
             {activeSection === 'results' && <ResultsEditor />}
+            {activeSection === 'contact' && <ContactEditor />}
           </motion.div>
         </div>
       </div>

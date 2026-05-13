@@ -7,7 +7,13 @@ import { useDocument } from 'react-firebase-hooks/firestore';
 
 const Hero = () => {
   const [heroValue, loading] = useDocument(doc(db, 'settings', 'hero'));
+  const [contactValue] = useDocument(doc(db, 'settings', 'contact'));
   const heroData = heroValue?.data();
+  const contactData = contactValue?.data();
+
+  const whatsappLink = contactData?.whatsapp 
+    ? `https://wa.me/${contactData.whatsapp.replace(/\D/g, '')}`
+    : 'https://wa.me/5500000000000';
 
   return (
     <section id="home" className="relative min-h-screen flex items-center justify-center overflow-hidden bg-black">
@@ -57,19 +63,20 @@ const Hero = () => {
               href="#plans"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="btn-primary"
+              className="btn-primary text-center"
             >
               Começar Agora
             </motion.a>
             
             <motion.a
-              href="https://wa.me/5500000000000"
+              href={whatsappLink}
               target="_blank"
               rel="noopener noreferrer"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="btn-secondary"
+              className="btn-secondary !flex items-center gap-2 justify-center"
             >
+              <MessageCircle className="w-4 h-4" />
               WhatsApp
             </motion.a>
           </div>

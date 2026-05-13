@@ -1,8 +1,25 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Send, MapPin, Phone, Instagram, Facebook, Youtube } from 'lucide-react';
+import { Send, MapPin, Phone, Instagram } from 'lucide-react';
+import { db } from '../lib/firebase';
+import { doc } from 'firebase/firestore';
+import { useDocument } from 'react-firebase-hooks/firestore';
 
 const Contact = () => {
+  const [contactValue] = useDocument(doc(db, 'settings', 'contact'));
+  const contactData = contactValue?.data();
+
+  const handleWhatsAppSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const formData = new FormData(e.target as HTMLFormElement);
+    const name = formData.get('name');
+    const goal = formData.get('goal');
+    
+    const whatsappNumber = contactData?.whatsapp?.replace(/\D/g, '') || '5500000000000';
+    const text = encodeURIComponent(`Olá! Sou ${name}. Meu objetivo é ${goal}. Gostaria de mais informações sobre a consultoria.`);
+    window.open(`https://wa.me/${whatsappNumber}?text=${text}`, '_blank');
+  };
+
   return (
     <section id="contact" className="py-24 bg-brand-black relative overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -20,15 +37,37 @@ const Contact = () => {
             </p>
 
             <div className="space-y-8">
-              <div className="flex items-center gap-6 group">
-                <div className="w-14 h-14 bg-brand-dark border border-white/5 rounded-2xl flex items-center justify-center text-red-600 group-hover:scale-110 transition-all">
+              <a 
+                href={`https://wa.me/${contactData?.whatsapp?.replace(/\D/g, '') || '5500000000000'}`} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="flex items-center gap-6 group"
+              >
+                <div className="w-14 h-14 bg-brand-dark border border-white/5 rounded-2xl flex items-center justify-center text-red-600 group-hover:scale-110 transition-all border-glow-red">
                   <Phone className="w-6 h-6" />
                 </div>
                 <div>
                   <p className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-1">WhatsApp</p>
-                  <p className="text-white font-black text-2xl tracking-tighter">(00) 9 0000-0000</p>
+                  <p className="text-white font-black text-2xl tracking-tighter">{contactData?.whatsapp || '(00) 0 0000-0000'}</p>
                 </div>
-              </div>
+              </a>
+
+              {contactData?.instagram && (
+                <a 
+                  href={`https://instagram.com/${contactData.instagram}`} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="flex items-center gap-6 group"
+                >
+                  <div className="w-14 h-14 bg-brand-dark border border-white/5 rounded-2xl flex items-center justify-center text-red-600 group-hover:scale-110 transition-all">
+                    <Instagram className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <p className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-1">Instagram</p>
+                    <p className="text-white font-black text-2xl tracking-tighter italic">@{contactData.instagram}</p>
+                  </div>
+                </a>
+              )}
 
               <div className="flex items-center gap-6 group">
                 <div className="w-14 h-14 bg-brand-dark border border-white/5 rounded-2xl flex items-center justify-center text-red-600 group-hover:scale-110 transition-all">
@@ -36,7 +75,7 @@ const Contact = () => {
                 </div>
                 <div>
                   <p className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-1">Localização</p>
-                  <p className="text-white font-black text-2xl tracking-tighter italic">Elite Performance Lab</p>
+                  <p className="text-white font-black text-2xl tracking-tighter italic">{contactData?.address || 'Elite Performance Lab'}</p>
                 </div>
               </div>
             </div>
@@ -48,41 +87,36 @@ const Contact = () => {
             viewport={{ once: true }}
             className="p-8 md:p-12 bg-brand-dark border border-white/5 rounded-3xl shadow-2xl"
           >
-            <form className="space-y-6">
+            <form onSubmit={handleWhatsAppSubmit} className="space-y-6">
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-gray-400 text-[10px] font-black uppercase tracking-widest mb-2">Nome Completo</label>
                   <input 
+                    name="name"
+                    required
                     type="text" 
                     placeholder="Seu nome"
                     className="w-full bg-brand-black border border-white/5 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-red-600 transition-colors"
                   />
                 </div>
                 <div>
-                  <label className="block text-gray-400 text-[10px] font-black uppercase tracking-widest mb-2">WhatsApp</label>
-                  <input 
-                    type="tel" 
-                    placeholder="(00) 0 0000-0000"
-                    className="w-full bg-brand-black border border-white/5 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-red-600 transition-colors"
-                  />
+                  <label className="block text-gray-400 text-[10px] font-black uppercase tracking-widest mb-2">Objetivo Principal</label>
+                  <select name="goal" className="w-full bg-brand-black border border-white/5 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-red-600 transition-colors appearance-none font-bold">
+                    <option>Hipertrofia</option>
+                    <option>Emagrecimento</option>
+                    <option>Performance Atleta</option>
+                    <option>Correção Postural</option>
+                  </select>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-gray-400 text-[10px] font-black uppercase tracking-widest mb-2">Qual seu objetivo?</label>
-                <select className="w-full bg-brand-black border border-white/5 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-red-600 transition-colors appearance-none">
-                  <option>Hipertrofia</option>
-                  <option>Emagrecimento</option>
-                  <option>Elite Performance</option>
-                </select>
-              </div>
-
               <motion.button
+                type="submit"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 className="w-full py-5 bg-red-600 text-white font-black uppercase italic tracking-widest rounded-xl flex items-center justify-center gap-2 shadow-2xl hover:bg-red-700 transition-all text-sm"
               >
-                Enviar Mensagem
+                Enviar via WhatsApp
                 <Send className="w-4 h-4" />
               </motion.button>
             </form>

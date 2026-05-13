@@ -1,6 +1,6 @@
 import React from 'react';
 import { db } from '../../lib/firebase';
-import { collection, query, orderBy, where, deleteDoc, doc } from 'firebase/firestore';
+import { collection, query, orderBy, where, deleteDoc, doc, getDocs } from 'firebase/firestore';
 import { useCollection } from 'react-firebase-hooks/firestore';
 import { Loader2, Dumbbell, Trash2 } from 'lucide-react';
 import { handleFirestoreError, OperationType } from '../../lib/utils';
@@ -12,8 +12,16 @@ const StudentWorkouts = ({ studentId, onEdit }: { studentId: string, onEdit: (wo
   const workouts = workoutsValue?.docs.map(doc => ({ id: doc.id, ...doc.data() })) || [];
 
   const handleDelete = async (workoutId: string) => {
-    if (!confirm('Tem certeza que deseja excluir este treino?')) return;
+    if (!confirm('Tem certeza que deseja excluir este plano de treino e todos os seus exercícios?')) return;
     try {
+      // 1. Delete associated exercises
+      const q = query(collection(db, 'exercises'), where('workoutId', '==', workoutId));
+      const exercisesSnapshot = await getDocs(q);
+      for (const exDoc of exercisesSnapshot.docs) {
+        await deleteDoc(doc(db, 'exercises', exDoc.id));
+      }
+      
+      // 2. Delete workout
       await deleteDoc(doc(db, 'workouts', workoutId));
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, 'workouts');

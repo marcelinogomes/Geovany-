@@ -29,8 +29,10 @@ interface FirestoreErrorInfo {
 import { auth } from './firebase';
 
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const message = error instanceof Error ? error.message : String(error);
+  
   const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
+    error: message,
     authInfo: {
       userId: auth.currentUser?.uid,
       email: auth.currentUser?.email,
@@ -39,7 +41,17 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     },
     operationType,
     path
+  };
+
+  // Log the detailed info for debugging
+  console.group('🔥 Firestore Security/Permission Error');
+  console.table(errInfo);
+  console.groupEnd();
+
+  // Throw a user-friendly error
+  if (message.includes('permission')) {
+    throw new Error('Ops! Você não tem permissão para realizar esta ação. Se você for administrador, verifique se seu email está correto.');
   }
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+  
+  throw new Error(`Erro no banco de dados (${operationType}): ${message}`);
 }

@@ -35,22 +35,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const userDocRef = doc(db, 'users', user.uid);
           let userDoc = null;
           
-          try {
-            userDoc = await getDoc(userDocRef);
-          } catch (err) {
-            console.error('Initial profile fetch failed:', err);
-            // If we are a bootstrapped admin, provide a local profile even if DB fails
-            if (isBootstrappedAdmin) {
-              setProfile({
-                uid: user.uid,
-                email: user.email!,
-                displayName: user.displayName || 'Admin',
-                role: 'admin',
-                createdAt: null as any
-              });
-              setLoading(false);
-              return;
+          // Improved profile fetch with silent retry for auth stabilization
+          let retries = 0;
+          while (retries < 3) {
+            try {
+              userDoc = await getDoc(userDocRef);
+              break;
+            } catch (err: any) {
+              if (err.code === 'permission-denied' && retries < 2) {
+                // Auth token might still be refreshing
+                await new Promise(resolve => setTimeout(resolve, 500));
+                retries++;
+              } else if (err.code === 'permission-denied') {
+                // Ignore permission error on first fetch - either new user or lock
+                break;
+              } else {
+                console.warn('Unusual failure on initial profile fetch:', err);
+                break;
+              }
             }
+          }
+
+          // If fetch failed completely but they are a bootstrapped admin, provide a local profile
+          if (!userDoc && isBootstrappedAdmin) {
+            setProfile({
+              uid: user.uid,
+              email: user.email!,
+              displayName: user.displayName || 'Admin',
+              role: 'admin',
+              createdAt: null as any
+            });
+            setLoading(false);
+            return;
           }
           
           if (userDoc && userDoc.exists()) {
@@ -61,9 +77,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               const updatedProfile: UserProfile = { 
                 ...currentProfile, 
                 role: 'admin',
-                updatedAt: serverTimestamp()
+                updatedAt: serverTimestamp() as any
               };
-              await updateDoc(userDocRef, { role: 'admin' }).catch(() => {});
+              await updateDoc(userDocRef, { 
+                role: 'admin',
+                updatedAt: serverTimestamp() 
+              }).catch(() => {});
               setProfile(updatedProfile);
             } else {
               setProfile(currentProfile);
@@ -79,13 +98,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               goal: '',
               weight: 0,
               height: 0,
-              createdAt: serverTimestamp(),
+              createdAt: serverTimestamp() as any,
             };
             
             try {
               await setDoc(userDocRef, newProfile);
               setProfile(newProfile);
             } catch (err) {
+              console.error('Failed to create profile:', err);
               // If setDoc fails but we are an admin, still allow login with local profile
               if (isBootstrappedAdmin) {
                 setProfile(newProfile);

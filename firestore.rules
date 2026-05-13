@@ -1,11 +1,7 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // 0. Default Deny Catch-all
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
+    
     // --- Global Helpers ---
     function isSignedIn() {
       return request.auth != null;
@@ -15,8 +11,8 @@ service cloud.firestore {
       return isSignedIn() && (
         request.auth.uid == '5bRjaeshc0TIdOB4BqCjSjSPlLv2' ||
         request.auth.uid == 'ddE2CUo6j2b1bE7Tey0qgyQTgpD2' ||
-        (request.auth.token.get('email', '') == 'geovanymarcelino25@gmail.com' || 
-         request.auth.token.get('email', '') == 'mginformatica78@gmail.com')
+        request.auth.token.email == 'geovanymarcelino25@gmail.com' ||
+        request.auth.token.email == 'mginformatica78@gmail.com'
       );
     }
 
@@ -24,38 +20,20 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Validation helper for user profile
-    function isValidUser(data) {
-      return data.keys().hasAll(['uid', 'email', 'role']) &&
-             data.uid is string &&
-             data.email is string &&
-             data.role in ['admin', 'student'];
-    }
-
     // --- Users ---
+    // Allow users to read and create their own profile always
     match /users/{userId} {
-      // Users can always read their own profile. Admins can read all.
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
-      
-      // Creation: must match auth UID
-      allow create: if isOwner(userId) && isValidUser(request.resource.data);
-      
-      // Update: owner can update profile (but not role!), admin can update everything
-      allow update: if isAdmin() || (
-        isOwner(userId) && 
-        isValidUser(request.resource.data) &&
-        request.resource.data.role == resource.data.role
-      );
-      
+      allow create: if isOwner(userId) || isAdmin();
+      allow update: if isAdmin() || (isOwner(userId) && request.resource.data.role == resource.data.role);
       allow delete: if isAdmin();
     }
 
-    // --- Training Data (Workouts) ---
+    // --- Workouts ---
     match /workouts/{workoutId} {
-      allow get: if isSignedIn() && (isAdmin() || resource.data.studentId == request.auth.uid);
-      allow list: if isSignedIn() && (isAdmin() || (request.query.limit <= 50 && resource.data.studentId == request.auth.uid));
-      allow create, update, delete: if isAdmin();
+      allow read: if isSignedIn() && (isAdmin() || resource.data.studentId == request.auth.uid);
+      allow write: if isAdmin();
     }
 
     // --- Exercises ---
@@ -66,13 +44,12 @@ service cloud.firestore {
 
     // --- Progress ---
     match /progress/{entryId} {
-      allow get: if isSignedIn() && (isAdmin() || resource.data.studentId == request.auth.uid);
-      allow list: if isSignedIn() && (isAdmin() || resource.data.studentId == request.auth.uid);
+      allow read: if isSignedIn() && (isAdmin() || resource.data.studentId == request.auth.uid);
       allow create: if isSignedIn() && request.resource.data.studentId == request.auth.uid;
       allow update, delete: if isAdmin();
     }
 
-    // --- CMS / Site Content ---
+    // --- Settings / CMS ---
     match /settings/{id} {
       allow read: if true;
       allow write: if isAdmin();
@@ -86,6 +63,11 @@ service cloud.firestore {
     match /results/{id} {
       allow read: if true;
       allow write: if isAdmin();
+    }
+
+    // --- Default Deny (At the end) ---
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
