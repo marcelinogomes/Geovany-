@@ -1,0 +1,97 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User account information and role.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["student", "admin"] },
+        "photoURL": { "type": "string" },
+        "goal": { "type": "string" },
+        "weight": { "type": "number" },
+        "height": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Workout": {
+      "title": "Workout Plan",
+      "description": "A set of exercises assigned to a student.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "studentId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["studentId", "title"]
+    },
+    "Exercise": {
+      "title": "Exercise",
+      "description": "Specific exercise details within a workout.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "sets": { "type": "number" },
+        "reps": { "type": "string" },
+        "weight": { "type": "string" },
+        "videoUrl": { "type": "string" },
+        "notes": { "type": "string" },
+        "order": { "type": "number" }
+      },
+      "required": ["name", "sets", "reps"]
+    },
+    "ProgressEntry": {
+      "title": "Progress Entry",
+      "description": "Student progress record (weight, measurements, photos).",
+      "type": "object",
+      "properties": {
+        "studentId": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "weight": { "type": "number" },
+        "bodyFat": { "type": "number" },
+        "chest": { "type": "number" },
+        "waist": { "type": "number" },
+        "biceps": { "type": "number" },
+        "thigh": { "type": "number" },
+        "notes": { "type": "string" }
+      },
+      "required": ["studentId", "date"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": "User",
+      "description": "Global user profiles."
+    },
+    "/workouts/{workoutId}": {
+      "schema": "Workout",
+      "description": "Workout plans."
+    },
+    "/exercises/{exerciseId}": {
+      "schema": "Exercise",
+      "description": "Individual exercises linked via workoutId."
+    },
+    "/progress/{entryId}": {
+      "schema": "ProgressEntry",
+      "description": "History of progress measurements."
+    },
+    "/settings/{id}": {
+      "schema": "object",
+      "description": "Site configuration (hero, about)."
+    },
+    "/plans/{id}": {
+      "schema": "object",
+      "description": "Subscription plans."
+    },
+    "/results/{id}": {
+      "schema": "object",
+      "description": "Success cases."
+    }
+  }
+}

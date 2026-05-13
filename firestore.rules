@@ -1,0 +1,154 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isEmailVerified() {
+      return request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      // Allow specific emails even if not verified, or check for admin role in users collection
+      return isSignedIn() && (
+        request.auth.token.email == 'geovanymarcelino25@gmail.com' ||
+        request.auth.token.email == 'mginformatica78@gmail.com' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128;
+    }
+
+    // --- Validations ---
+
+    function isValidUserCreate(data) {
+      return data.get('uid', '') is string
+          && data.get('email', '') is string
+          && (data.get('role', 'student') in ['student', 'admin'])
+          && (data.get('displayName', '') is string)
+          && (data.get('photoURL', '') is string)
+          && (data.get('goal', '') is string)
+          && (data.get('weight', 0) is number)
+          && (data.get('height', 0) is number)
+          && (data.get('createdAt', request.time) is timestamp)
+          && (data.get('updatedAt', request.time) is timestamp);
+    }
+
+    function isValidUserUpdate(existingData, incomingData) {
+      return (incomingData.get('uid', existingData.get('uid', '')) is string || !('uid' in incomingData))
+          && (incomingData.get('email', existingData.get('email', '')) is string || !('email' in incomingData))
+          && (incomingData.get('role', existingData.get('role', 'student')) in ['student', 'admin'] || !('role' in incomingData))
+          && (incomingData.get('displayName', existingData.get('displayName', '')) is string || !('displayName' in incomingData))
+          && (incomingData.get('photoURL', existingData.get('photoURL', '')) is string || !('photoURL' in incomingData))
+          && (incomingData.get('goal', existingData.get('goal', '')) is string || !('goal' in incomingData))
+          && (incomingData.get('weight', existingData.get('weight', 0)) is number || incomingData.get('weight', existingData.get('weight', 0)) == null || !('weight' in incomingData))
+          && (incomingData.get('height', existingData.get('height', 0)) is number || incomingData.get('height', existingData.get('height', 0)) == null || !('height' in incomingData));
+    }
+
+    function isValidWorkout(data) {
+      return (data.get('studentId', '') is string)
+          && (data.get('title', '') is string)
+          && (data.get('title', '').size() <= 100)
+          && (data.get('description', '') is string)
+          && (data.get('createdAt', request.time) is timestamp)
+          && (data.get('updatedAt', request.time) is timestamp);
+    }
+
+    function isValidExercise(data) {
+      return (data.get('name', '') is string)
+          && (data.get('workoutId', '') is string)
+          && (data.get('sets', 0) is number)
+          && (data.get('reps', '') is string)
+          && (data.get('rest', '') is string)
+          && (data.get('weight', '') is string)
+          && (data.get('notes', '') is string)
+          && (data.get('videoUrl', '') is string)
+          && (data.get('order', 0) is number)
+          && (data.get('createdAt', request.time) is timestamp)
+          && (data.get('updatedAt', request.time) is timestamp);
+    }
+
+    function isValidProgress(data) {
+      return (data.get('studentId', '') is string)
+          && (data.get('weight', 0) is number)
+          && (data.get('date', request.time) is timestamp);
+    }
+
+    // --- Collection Matches ---
+
+    match /users/{userId} {
+      allow get: if isValidId(userId) && isSignedIn() && (isOwner(userId) || isAdmin());
+      allow list: if isSignedIn() && (isAdmin() || isOwner(resource.data.get('uid', '')));
+      
+      allow create: if isValidId(userId) && isSignedIn() && (isOwner(userId) || isAdmin()) && isValidUserCreate(incoming());
+      allow update: if isValidId(userId) && isSignedIn() && (
+        isAdmin() || 
+        (isOwner(userId) && (
+          incoming().get('role', existing().get('role', 'student')) == existing().get('role', 'student')
+        ))
+      ) && isValidUserUpdate(existing(), incoming());
+    }
+
+    match /workouts/{workoutId} {
+      allow get: if isValidId(workoutId) && isSignedIn() && (isOwner(resource.data.get('studentId', '')) || isAdmin());
+      allow list: if isAdmin() || (isSignedIn() && resource.data.get('studentId', '') == request.auth.uid);
+      
+      allow create, update: if isValidId(workoutId) && isAdmin() && isValidWorkout(incoming());
+      allow delete: if isValidId(workoutId) && isAdmin();
+    }
+
+    match /exercises/{exerciseId} {
+      allow get: if isValidId(exerciseId) && isSignedIn();
+      allow list: if isSignedIn();
+      allow create, update: if isValidId(exerciseId) && isAdmin() && isValidExercise(incoming());
+      allow delete: if isValidId(exerciseId) && isAdmin();
+    }
+
+    match /progress/{entryId} {
+      allow get: if isValidId(entryId) && isSignedIn() && (isOwner(resource.data.get('studentId', '')) || isAdmin());
+      allow list: if isAdmin() || (isSignedIn() && resource.data.get('studentId', '') == request.auth.uid);
+      
+      allow create: if isValidId(entryId) && isSignedIn() && isOwner(incoming().get('studentId', '')) && isValidProgress(incoming());
+      allow update: if isValidId(entryId) && isSignedIn() && (isOwner(existing().get('studentId', '')) || isAdmin()) && isValidProgress(incoming());
+      allow delete: if isValidId(entryId) && isAdmin();
+    }
+
+    // --- Public/Site Content ---
+    match /settings/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /plans/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /results/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+  }
+}
