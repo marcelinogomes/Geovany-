@@ -61,6 +61,7 @@ const Results = () => {
                 key={idx}
                 initial={{ opacity: 0, scale: 0.95 }}
                 whileInView={{ opacity: 1, scale: 1 }}
+                whileHover={{ scale: 1.02, boxShadow: "0px 0px 20px rgba(220, 38, 38, 0.4)" }}
                 viewport={{ once: true }}
                 transition={{ delay: idx * 0.1 }}
                 className="group relative overflow-hidden rounded-2xl bg-brand-dark border border-white/5 shadow-2xl"

@@ -1,0 +1,333 @@
+import React, { useState } from 'react';
+import { db } from '../../lib/firebase';
+import { collection, query, orderBy, addDoc, updateDoc, doc, deleteDoc, setDoc } from 'firebase/firestore';
+import { useCollection, useDocument } from 'react-firebase-hooks/firestore';
+import { Loader2, Plus, Trash2, Save } from 'lucide-react';
+import { motion } from 'motion/react';
+import { handleFirestoreError, OperationType } from '../../lib/utils';
+
+export const HeroEditor = () => {
+    const [heroValue, loading] = useDocument(doc(db, 'settings', 'hero'));
+    const [data, setData] = useState({ title: '', subtitle: '' });
+  
+    React.useEffect(() => {
+      if (heroValue?.exists()) {
+        setData(heroValue.data() as any);
+      }
+    }, [heroValue]);
+  
+    const handleSave = async () => {
+      try {
+        await setDoc(doc(db, 'settings', 'hero'), data);
+        alert('Hero atualizado!');
+      } catch (error) {
+        handleFirestoreError(error, OperationType.UPDATE, 'settings/hero');
+      }
+    };
+  
+    if (loading) return <Loader2 className="animate-spin text-red-600" />;
+  
+    return (
+      <div className="space-y-6">
+        <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter">Editor da Hero</h3>
+        <div>
+          <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 px-1">Título Principal</label>
+          <textarea 
+            className="w-full bg-brand-black border border-white/10 rounded-xl px-4 py-4 text-white font-black uppercase italic tracking-tighter text-2xl"
+            value={data.title}
+            onChange={e => setData({...data, title: e.target.value})}
+            rows={3}
+          />
+        </div>
+        <div>
+          <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 px-1">Subtítulo / Descrição</label>
+          <input 
+            className="w-full bg-brand-black border border-white/10 rounded-xl px-4 py-4 text-white font-medium"
+            value={data.subtitle}
+            onChange={e => setData({...data, subtitle: e.target.value})}
+          />
+        </div>
+        <button onClick={handleSave} className="btn-primary flex items-center gap-2">
+          <Save className="w-4 h-4" /> Salvar Alterações
+        </button>
+      </div>
+    );
+};
+
+export const AboutEditor = () => {
+    const [aboutValue, loading] = useDocument(doc(db, 'settings', 'about'));
+    const [data, setData] = useState({ missionTitle: '', missionText: '', stats: [] as any[] });
+  
+    React.useEffect(() => {
+      if (aboutValue?.exists()) {
+        setData(aboutValue.data() as any);
+      }
+    }, [aboutValue]);
+  
+    const handleSave = async () => {
+      try {
+        await setDoc(doc(db, 'settings', 'about'), data);
+        alert('Seção Sobre atualizada!');
+      } catch (error) {
+        handleFirestoreError(error, OperationType.UPDATE, 'settings');
+      }
+    };
+  
+    if (loading) return <Loader2 className="animate-spin text-red-600" />;
+  
+    return (
+      <div className="space-y-6">
+        <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter">Editor do Sobre</h3>
+        <div>
+          <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 px-1">Título da Missão</label>
+          <input 
+            className="w-full bg-brand-black border border-white/10 rounded-xl px-4 py-4 text-white font-black uppercase italic tracking-tighter"
+            value={data.missionTitle}
+            onChange={e => setData({...data, missionTitle: e.target.value})}
+          />
+        </div>
+        <div>
+          <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 px-1">Texto da Missão</label>
+          <textarea 
+            className="w-full bg-brand-black border border-white/10 rounded-xl px-4 py-4 text-white font-medium"
+            value={data.missionText}
+            onChange={e => setData({...data, missionText: e.target.value})}
+            rows={4}
+          />
+        </div>
+        <button onClick={handleSave} className="btn-primary flex items-center gap-2">
+          <Save className="w-4 h-4" /> Salvar Alterações
+        </button>
+      </div>
+    );
+};
+
+export const PlansEditor = () => {
+    const [plansValue, loading] = useCollection(collection(db, 'plans'));
+    const plans = plansValue?.docs.map(doc => ({ id: doc.id, ...doc.data() })) || [];
+  
+    const handleAddPlan = async () => {
+      try {
+        await addDoc(collection(db, 'plans'), {
+          name: 'Novo Plano',
+          price: 'R$ 0',
+          period: '/mês',
+          description: 'Descrição aqui...',
+          features: ['Funcionalidade 1'],
+          highlight: false,
+          order: plans.length
+        });
+      } catch (error) {
+        handleFirestoreError(error, OperationType.CREATE, 'plans');
+      }
+    };
+  
+    const handleUpdatePlan = async (id: string, updated: any) => {
+      try {
+        await updateDoc(doc(db, 'plans', id), updated);
+      } catch (error) {
+        handleFirestoreError(error, OperationType.UPDATE, 'plans');
+      }
+    };
+  
+    const handleDeletePlan = async (id: string) => {
+      if (!confirm('Excluir plano?')) return;
+      try {
+        await deleteDoc(doc(db, 'plans', id));
+      } catch (error) {
+        handleFirestoreError(error, OperationType.DELETE, 'plans');
+      }
+    };
+  
+    if (loading) return <Loader2 className="animate-spin text-red-600" />;
+  
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center mb-8">
+          <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter">Gestão de Planos</h3>
+          <button onClick={handleAddPlan} className="btn-primary flex items-center gap-2">
+            <Plus className="w-4 h-4" /> Novo Plano
+          </button>
+        </div>
+  
+        <div className="grid gap-6">
+          {plans.sort((a: any, b: any) => a.order - b.order).map((plan: any) => (
+            <div key={plan.id} className="p-6 bg-brand-black/50 border border-white/5 rounded-2xl space-y-4">
+              <div className="flex justify-between items-start">
+                <div className="grid grid-cols-2 gap-4 flex-1 mr-4">
+                  <input 
+                    value={plan.name}
+                    onChange={e => handleUpdatePlan(plan.id, { name: e.target.value })}
+                    className="bg-brand-dark border border-white/5 rounded px-3 py-2 text-white font-black uppercase italic"
+                    placeholder="Nome do Plano"
+                  />
+                  <input 
+                    value={plan.price}
+                    onChange={e => handleUpdatePlan(plan.id, { price: e.target.value })}
+                    className="bg-brand-dark border border-white/5 rounded px-3 py-2 text-white font-black"
+                    placeholder="Preço (Ex: R$ 197)"
+                  />
+                </div>
+                <button 
+                  onClick={() => handleDeletePlan(plan.id)}
+                  className="p-2 text-gray-700 hover:text-red-500 transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+              <textarea 
+                 value={plan.description}
+                 onChange={e => handleUpdatePlan(plan.id, { description: e.target.value })}
+                 className="w-full bg-brand-dark border border-white/5 rounded px-3 py-2 text-xs text-gray-400"
+                 rows={2}
+                 placeholder="Descrição curta..."
+              />
+               <div className="flex items-center gap-4">
+                 <label className="flex items-center gap-2 text-[10px] font-black uppercase text-gray-500 cursor-pointer">
+                   <input 
+                     type="checkbox" 
+                     checked={plan.highlight}
+                     onChange={e => handleUpdatePlan(plan.id, { highlight: e.target.checked })}
+                     className="accent-red-600"
+                   />
+                   Destacar Plano (Recomendado)
+                 </label>
+               </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+};
+
+export const ResultsEditor = () => {
+    const [resultsValue, loading] = useCollection(collection(db, 'results'));
+    const results = resultsValue?.docs.map(doc => ({ id: doc.id, ...doc.data() })) || [];
+  
+    const handleAddResult = async () => {
+      try {
+        await addDoc(collection(db, 'results'), {
+          title: 'Nova Transformação',
+          before: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?auto=format&fit=crop&q=80',
+          after: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?auto=format&fit=crop&q=80',
+          text: 'Relato do aluno aqui...',
+          order: results.length
+        });
+      } catch (error) {
+        handleFirestoreError(error, OperationType.CREATE, 'results');
+      }
+    };
+  
+    const handleUpdateResult = async (id: string, updated: any) => {
+      try {
+        await updateDoc(doc(db, 'results', id), updated);
+      } catch (error) {
+        handleFirestoreError(error, OperationType.UPDATE, 'results');
+      }
+    };
+  
+    const handleDeleteResult = async (id: string) => {
+      if (!confirm('Excluir resultado?')) return;
+      try {
+        await deleteDoc(doc(db, 'results', id));
+      } catch (error) {
+        handleFirestoreError(error, OperationType.DELETE, 'results');
+      }
+    };
+  
+    if (loading) return <Loader2 className="animate-spin text-red-600" />;
+  
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center mb-8">
+          <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter">Case de Sucesso</h3>
+          <button onClick={handleAddResult} className="btn-primary flex items-center gap-2">
+            <Plus className="w-4 h-4" /> Novo Case
+          </button>
+        </div>
+  
+        <div className="grid gap-8">
+          {results.sort((a: any, b: any) => a.order - b.order).map((res: any) => (
+            <div key={res.id} className="p-6 bg-brand-black/50 border border-white/5 rounded-2xl space-y-4 flex gap-6">
+              <div className="flex flex-col gap-4 w-64 shrink-0">
+                <div className="space-y-2">
+                    <label className="text-[8px] font-black uppercase text-gray-500">URL Antes</label>
+                    <input 
+                        value={res.before}
+                        onChange={e => handleUpdateResult(res.id, { before: e.target.value })}
+                        className="bg-brand-dark border border-white/5 rounded px-3 py-1 text-[8px] text-gray-400 w-full"
+                    />
+                </div>
+                <div className="space-y-2">
+                    <label className="text-[8px] font-black uppercase text-gray-500">URL Depois</label>
+                    <input 
+                        value={res.after}
+                        onChange={e => handleUpdateResult(res.id, { after: e.target.value })}
+                        className="bg-brand-dark border border-white/5 rounded px-3 py-1 text-[8px] text-gray-400 w-full"
+                    />
+                </div>
+              </div>
+              <div className="flex-1 space-y-4">
+                <div className="flex justify-between items-start">
+                  <input 
+                    value={res.title}
+                    onChange={e => handleUpdateResult(res.id, { title: e.target.value })}
+                    className="bg-brand-dark border border-white/5 rounded px-3 py-2 text-white font-black uppercase italic w-full mr-4"
+                    placeholder="Nome do Aluno"
+                  />
+                  <button onClick={() => handleDeleteResult(res.id)} className="p-2 text-gray-700 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                </div>
+                <textarea 
+                    value={res.text}
+                    onChange={e => handleUpdateResult(res.id, { text: e.target.value })}
+                    className="w-full bg-brand-dark border border-white/5 rounded px-3 py-2 text-xs text-gray-400"
+                    rows={3}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+};
+
+const SiteContentManager = () => {
+    const [activeSection, setActiveSection] = useState<'hero' | 'about' | 'plans' | 'results'>('hero');
+  
+    return (
+      <div className="grid lg:grid-cols-12 gap-8">
+        <div className="lg:col-span-3 space-y-2">
+          {(['hero', 'about', 'plans', 'results'] as const).map(section => (
+            <button
+              key={section}
+              onClick={() => setActiveSection(section)}
+              className={`w-full text-left p-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                activeSection === section ? 'bg-red-600 text-white shadow-lg' : 'bg-brand-dark text-gray-500 hover:text-white border border-white/5'
+              }`}
+            >
+              {section === 'hero' && 'Início / Hero'}
+              {section === 'about' && 'Sobre'}
+              {section === 'plans' && 'Planos / Preços'}
+              {section === 'results' && 'Resultados'}
+            </button>
+          ))}
+        </div>
+  
+        <div className="lg:col-span-9">
+          <motion.div
+             key={activeSection}
+             initial={{ opacity: 0, y: 20 }}
+             animate={{ opacity: 1, y: 0 }}
+             className="card-premium p-8"
+          >
+            {activeSection === 'hero' && <HeroEditor />}
+            {activeSection === 'about' && <AboutEditor />}
+            {activeSection === 'plans' && <PlansEditor />}
+            {activeSection === 'results' && <ResultsEditor />}
+          </motion.div>
+        </div>
+      </div>
+    );
+};
+
+export default SiteContentManager;

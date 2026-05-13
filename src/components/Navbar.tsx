@@ -91,12 +91,13 @@ const Navbar = () => {
                   </button>
                 </div>
               ) : (
-                <button
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
                   onClick={handleLogin}
                   className="px-6 py-2 bg-white text-black text-xs font-black uppercase tracking-tighter hover:bg-red-600 hover:text-white transition-all shadow-xl"
                 >
                   Entrar
-                </button>
+                </motion.button>
               )}
             </div>
           </div>
@@ -140,7 +141,8 @@ const Navbar = () => {
                 Dashboard
               </a>
             ) : (
-              <button
+              <motion.button
+                whileHover={{ scale: 1.02 }}
                 onClick={() => {
                   handleLogin();
                   setIsOpen(false);
@@ -148,7 +150,7 @@ const Navbar = () => {
                 className="w-full text-left px-3 py-4 text-base font-bold text-white bg-red-600 transition-all uppercase tracking-widest"
               >
                 Login
-              </button>
+              </motion.button>
             )}
           </div>
         </motion.div>
